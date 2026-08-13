@@ -1,0 +1,22 @@
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### OpenWolf ###
+.wolf/*
+!.wolf/cerebrum.md
+!.wolf/config.json
+
+### Other ###
+context/
+
+### Superpowers (subagent-driven-development scratch workspace) ###
+.superpowers/

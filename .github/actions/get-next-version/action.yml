@@ -1,0 +1,136 @@
+name: 'Get Next Version'
+description: 'Computes the next semantic version based on conventional commits and optionally creates a Git tag'
+author: 'Panos Bariamis'
+
+inputs:
+  default-version:
+    description: 'Version to start from when no previous semver tags are found'
+    required: false
+    default: '0.0.0'
+  create-tag:
+    description: 'Whether to create and push a Git tag for the new version'
+    required: false
+    default: 'true'
+  tag-prefix:
+    description: 'Prefix to add to the tag (e.g. "v" → v1.2.3). Leave empty for no prefix'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token used to push the tag (required when create-tag is true)'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: 'The computed next semantic version (e.g. 1.4.2)'
+    value: ${{ steps.semver.outputs.version }}
+  tag:
+    description: 'The full tag name that was created (including prefix)'
+    value: ${{ steps.semver.outputs.tag }}
+  major:
+    description: 'Major part of the version'
+    value: ${{ steps.semver.outputs.major }}
+  minor:
+    description: 'Minor part of the version'
+    value: ${{ steps.semver.outputs.minor }}
+  patch:
+    description: 'Patch part of the version'
+    value: ${{ steps.semver.outputs.patch }}
+  bump:
+    description: 'The type of bump that was applied (major, minor, or patch)'
+    value: ${{ steps.semver.outputs.bump }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Compute next semantic version
+      id: semver
+      shell: bash
+      env:
+        CREATE_TAG: ${{ inputs.create-tag }}
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+        DEFAULT_VERSION: ${{ inputs.default-version }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+
+        git fetch --tags --force
+
+        LAST_TAG=""
+        for candidate in $(git tag -l '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname); do
+          if echo "$candidate" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            LAST_TAG="$candidate"
+            break
+          fi
+        done
+
+        # Also check for prefixed tags (e.g. v1.2.3)
+        if [[ -z "$LAST_TAG" && -n "$TAG_PREFIX" ]]; then
+          for candidate in $(git tag -l "${TAG_PREFIX}[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname); do
+            version="${candidate#"$TAG_PREFIX"}"
+            if echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              LAST_TAG="$version"
+              break
+            fi
+          done
+        fi
+
+        LAST_TAG=${LAST_TAG:-$DEFAULT_VERSION}
+
+        if git rev-parse "${TAG_PREFIX}${LAST_TAG}" >/dev/null 2>&1 || \
+           git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
+          # Prefer the prefixed tag if it exists
+          if git rev-parse "${TAG_PREFIX}${LAST_TAG}" >/dev/null 2>&1; then
+            COMMITS=$(git log --format='%s%n%b' "${TAG_PREFIX}${LAST_TAG}..HEAD")
+          else
+            COMMITS=$(git log --format='%s%n%b' "${LAST_TAG}..HEAD")
+          fi
+        else
+          COMMITS=$(git log --format='%s%n%b')
+        fi
+
+        BUMP="patch"
+        if echo "$COMMITS" | grep -Eq '^BREAKING[ -]CHANGE:'; then
+          BUMP="major"
+        elif echo "$COMMITS" | grep -Eiq '^[a-z]+(\(.+\))?!:'; then
+          BUMP="major"
+        elif echo "$COMMITS" | grep -Eiq '^feat(\(.+\))?:'; then
+          BUMP="minor"
+        fi
+
+        IFS='.' read -r MAJOR MINOR REVISION <<< "$LAST_TAG"
+        MAJOR=${MAJOR:-0}
+        MINOR=${MINOR:-0}
+        REVISION=${REVISION:-0}
+
+        case "$BUMP" in
+          major) MAJOR=$((10#$MAJOR + 1)); MINOR=0; REVISION=0 ;;
+          minor) MINOR=$((10#$MINOR + 1)); REVISION=0 ;;
+          patch) REVISION=$((10#$REVISION + 1)) ;;
+        esac
+
+        SEMVER="${MAJOR}.${MINOR}.${REVISION}"
+        FULL_TAG="${TAG_PREFIX}${SEMVER}"
+
+        echo "Computed semver: ${SEMVER} (bump: ${BUMP})"
+        echo "version=${SEMVER}" >> $GITHUB_OUTPUT
+        echo "tag=${FULL_TAG}" >> $GITHUB_OUTPUT
+        echo "major=${MAJOR}" >> $GITHUB_OUTPUT
+        echo "minor=${MINOR}" >> $GITHUB_OUTPUT
+        echo "patch=${REVISION}" >> $GITHUB_OUTPUT
+        echo "bump=${BUMP}" >> $GITHUB_OUTPUT
+
+        if [[ "$CREATE_TAG" == "true" ]]; then
+          echo "Creating and pushing tag: ${FULL_TAG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "$FULL_TAG" -m "Release ${FULL_TAG}"
+
+          # Push the tag
+          git push origin "$FULL_TAG"
+        else
+          echo "Skipping tag creation (create-tag=false)"
+        fi
