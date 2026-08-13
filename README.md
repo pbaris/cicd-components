@@ -39,7 +39,7 @@ Computes the next [Semantic Version](https://semver.org/) based on [Conventional
 | `patch`   | Patch part of the version                           |
 | `bump`    | Type of bump applied (`major`, `minor`, or `patch`) |
 
-#### Example usage
+#### Example usagee
 
 **Compute the next version and create a tag:**
 
