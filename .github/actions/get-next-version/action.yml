@@ -1,5 +1,5 @@
 name: 'Get Next Version'
-description: 'Computes the next semantic version based on conventional commits and optionally creates a Git tag'
+description: 'Computes the next semantic version based on Conventional Commits and optionally creates a Git tag'
 author: 'Panos Bariamis'
 
 inputs:
@@ -47,90 +47,25 @@ runs:
       id: semver
       shell: bash
       env:
+        DEFAULT_VERSION: ${{ inputs.default-version }}
         CREATE_TAG: ${{ inputs.create-tag }}
         TAG_PREFIX: ${{ inputs.tag-prefix }}
-        DEFAULT_VERSION: ${{ inputs.default-version }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
-        set -euo pipefail
+        # Run the shared script
+        bash "${{ github.action_path }}/../../scripts/get-next-version.sh" > /tmp/version.out
 
-        git fetch --tags --force
+        # Parse outputs for GitHub Actions
+        VERSION=$(grep '^VERSION=' /tmp/version.out | cut -d= -f2)
+        TAG=$(grep '^TAG=' /tmp/version.out | cut -d= -f2)
+        MAJOR=$(grep '^MAJOR=' /tmp/version.out | cut -d= -f2)
+        MINOR=$(grep '^MINOR=' /tmp/version.out | cut -d= -f2)
+        PATCH=$(grep '^PATCH=' /tmp/version.out | cut -d= -f2)
+        BUMP=$(grep '^BUMP=' /tmp/version.out | cut -d= -f2)
 
-        LAST_TAG=""
-        for candidate in $(git tag -l '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname); do
-          if echo "$candidate" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            LAST_TAG="$candidate"
-            break
-          fi
-        done
-
-        # Also check for prefixed tags (e.g. v1.2.3)
-        if [[ -z "$LAST_TAG" && -n "$TAG_PREFIX" ]]; then
-          for candidate in $(git tag -l "${TAG_PREFIX}[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname); do
-            version="${candidate#"$TAG_PREFIX"}"
-            if echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              LAST_TAG="$version"
-              break
-            fi
-          done
-        fi
-
-        LAST_TAG=${LAST_TAG:-$DEFAULT_VERSION}
-
-        if git rev-parse "${TAG_PREFIX}${LAST_TAG}" >/dev/null 2>&1 || \
-           git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
-          # Prefer the prefixed tag if it exists
-          if git rev-parse "${TAG_PREFIX}${LAST_TAG}" >/dev/null 2>&1; then
-            COMMITS=$(git log --format='%s%n%b' "${TAG_PREFIX}${LAST_TAG}..HEAD")
-          else
-            COMMITS=$(git log --format='%s%n%b' "${LAST_TAG}..HEAD")
-          fi
-        else
-          COMMITS=$(git log --format='%s%n%b')
-        fi
-
-        BUMP="patch"
-        if echo "$COMMITS" | grep -Eq '^BREAKING[ -]CHANGE:'; then
-          BUMP="major"
-        elif echo "$COMMITS" | grep -Eiq '^[a-z]+(\(.+\))?!:'; then
-          BUMP="major"
-        elif echo "$COMMITS" | grep -Eiq '^feat(\(.+\))?:'; then
-          BUMP="minor"
-        fi
-
-        IFS='.' read -r MAJOR MINOR REVISION <<< "$LAST_TAG"
-        MAJOR=${MAJOR:-0}
-        MINOR=${MINOR:-0}
-        REVISION=${REVISION:-0}
-
-        case "$BUMP" in
-          major) MAJOR=$((10#$MAJOR + 1)); MINOR=0; REVISION=0 ;;
-          minor) MINOR=$((10#$MINOR + 1)); REVISION=0 ;;
-          patch) REVISION=$((10#$REVISION + 1)) ;;
-        esac
-
-        SEMVER="${MAJOR}.${MINOR}.${REVISION}"
-        FULL_TAG="${TAG_PREFIX}${SEMVER}"
-
-        echo "Computed semver: ${SEMVER} (bump: ${BUMP})"
-        echo "version=${SEMVER}" >> $GITHUB_OUTPUT
-        echo "tag=${FULL_TAG}" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "tag=${TAG}" >> $GITHUB_OUTPUT
         echo "major=${MAJOR}" >> $GITHUB_OUTPUT
         echo "minor=${MINOR}" >> $GITHUB_OUTPUT
-        echo "patch=${REVISION}" >> $GITHUB_OUTPUT
+        echo "patch=${PATCH}" >> $GITHUB_OUTPUT
         echo "bump=${BUMP}" >> $GITHUB_OUTPUT
-
-        if [[ "$CREATE_TAG" == "true" ]]; then
-          echo "Creating and pushing tag: ${FULL_TAG}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Create annotated tag
-          git tag -a "$FULL_TAG" -m "Release ${FULL_TAG}"
-
-          # Push the tag
-          git push origin "$FULL_TAG"
-        else
-          echo "Skipping tag creation (create-tag=false)"
-        fi

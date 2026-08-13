@@ -1,0 +1,41 @@
+spec:
+  inputs:
+    stage:
+      default: version
+      description: Name of the CI/CD stage the job runs in.
+    create-tag:
+      default: "true"
+      description: Whether to create and push a Git tag.
+    tag-prefix:
+      default: ""
+      description: Prefix for the tag (e.g. "v").
+    default-version:
+      default: "0.0.0"
+      description: Fallback version when no tags exist.
+    image:
+      default: bitnami/git:latest
+      description: Container image used to run the job.
+---
+
+get-next-version:
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.image ]]
+  variables:
+    GIT_DEPTH: "0"
+    CREATE_TAG: "$[[ inputs.create-tag ]]"
+    TAG_PREFIX: "$[[ inputs.tag-prefix ]]"
+    DEFAULT_VERSION: "$[[ inputs.default-version ]]"
+  script:
+    - |
+      # Download the shared script
+      curl -sL "https://raw.githubusercontent.com/pbaris/cicd-components/main/scripts/get-next-version.sh" -o /tmp/get-next-version.sh
+      chmod +x /tmp/get-next-version.sh
+
+      # Run it and capture output
+      /tmp/get-next-version.sh | tee /tmp/version.env
+
+      # Convert to dotenv format for GitLab
+      grep -E '^(VERSION|TAG|MAJOR|MINOR|PATCH|BUMP)=' /tmp/version.env > version.env
+  artifacts:
+    reports:
+      dotenv: version.env
