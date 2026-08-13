@@ -6,20 +6,6 @@ The goal is to keep common logic (especially bash scripts) shared between platfo
 
 ---
 
-## Structure
-
-.
-├── actions/                    # GitHub Actions
-│   └── get-next-version/
-│       └── action.yml
-├── templates/                  # GitLab CI templates
-│   └── get-next-version.yml
-├── scripts/                    # Shared scripts
-│   └── get-next-version.sh
-└── README.md
-
----
-
 ## Components
 
 ### `get-next-version`
