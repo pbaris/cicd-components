@@ -1,3 +1,5 @@
+![Latest Tag](https://img.shields.io/github/v/tag/pbaris/cicd-components?sort=semver)
+
 # CI/CD Components
 
 Public repository containing reusable **CI/CD components** for both **GitHub Actions** and **GitLab CI**.
