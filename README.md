@@ -63,7 +63,7 @@ jobs:
 
       - name: Get next version and create tag
         id: next
-        uses: pbaris/cicd-components/actions/get-next-version@main
+        uses: pbaris/cicd-components/actions/get-next-version@main  # Prefer a version tag (e.g. @v1.0.0) instead of @main
         with:
           tag-prefix: 'v' # optional – default is no prefix
 
