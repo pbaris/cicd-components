@@ -107,7 +107,7 @@ jobs:
 ```yaml
 
 include:
-  - remote: 'https://raw.githubusercontent.com/pbaris/cicd-components/main/templates/get-next-version.yml'
+  - remote: 'https://raw.githubusercontent.com/pbaris/cicd-components/main/.gitlab/templates/get-next-version.yml'
     inputs:
       tag-prefix: "v"
       # stage: version
