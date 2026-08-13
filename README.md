@@ -41,7 +41,7 @@ Computes the next [Semantic Version](https://semver.org/) based on [Conventional
 
 #### Example usage
 
-**Only compute the next version:**
+**Compute the next version and create a tag:**
 
 ```yaml
 name: Release
