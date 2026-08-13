@@ -12,7 +12,8 @@ The goal is to keep common logic (especially bash scripts) shared between platfo
 
 ### `get-next-version`
 
-Computes the next Semantic Version[](https://semver.org/) based on Conventional Commits[](https://www.conventionalcommits.org/) since the last tag, and optionally creates + pushes a Git tag.
+Computes the next [Semantic Version](https://semver.org/) based on [Conventional Commits](https://www.conventionalcommits.org/) since the last tag, and optionally creates + pushes a Git tag.
+
 
 The core logic lives in a **shared bash script** (`scripts/get-next-version.sh`) and is used by both the GitHub Action and the GitLab CI template.
 
