@@ -53,7 +53,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         # Run the shared script
-        bash "${{ github.action_path }}/../../scripts/get-next-version.sh" > /tmp/version.out
+        bash "${{ github.action_path }}/../../../scripts/get-next-version.sh" > /tmp/version.out
 
         # Parse outputs for GitHub Actions
         VERSION=$(grep '^VERSION=' /tmp/version.out | cut -d= -f2)
